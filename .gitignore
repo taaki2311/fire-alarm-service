@@ -1,0 +1,6 @@
+/target
+timestamp.txt
+.env*
+.flaskenv*
+!.env.project
+!.env.vault
