@@ -266,24 +266,37 @@ struct Subscriber {
 // trait aliases are experimental <https://github.com/rust-lang/rust/issues/41517>
 // So I am just going to define my own trait until that gets added
 
-pub trait DatabaseFuture<C: ConnectionTrait>: Future<Output = std::result::Result<C, DbErr>> {}
-impl<C: ConnectionTrait, T: Future<Output = std::result::Result<C, DbErr>>> DatabaseFuture<C> for T {}
+pub trait DatabaseFuture<C: ConnectionTrait>:
+    Future<Output = std::result::Result<C, DbErr>>
+{
+}
+impl<C: ConnectionTrait, T: Future<Output = std::result::Result<C, DbErr>>> DatabaseFuture<C>
+    for T
+{
+}
 
 // I only need access to the database in this function hence why I am asking for a future for the database connection rather than for the connection directly.
 // Doing it this way also makes it so that the initial connection request is sent early and so it be processing or already done by the time this function is called.
 // Plus this allows me to setup the tables for an in-memory SQLite database for testing before calling this function.
 /// Fetches all of the users with the stations that they are subscribed to from the SQL database
-async fn fetch_users<C: ConnectionTrait>(database: impl DatabaseFuture<C>) -> Result<Vec<Subscriber>> {
+async fn fetch_users<C: ConnectionTrait>(
+    database: impl DatabaseFuture<C>,
+) -> Result<Vec<Subscriber>> {
     use sea_orm::{EntityTrait, ModelTrait};
 
     let db = &database.await?;
     let users = User::find().all(db).await?;
     let mut subscribers = Vec::with_capacity(users.len()); // Trying to get rid of the unnecessary `mut` just makes things messy
     for user in users {
-        let stations = user.find_related(Station).all(db).await?;
         subscribers.push(Subscriber {
             email: user.email.parse()?,
-            stations: stations.into_iter().map(|station| station.name).collect(),
+            stations: user
+                .find_related(Station)
+                .all(db)
+                .await?
+                .into_iter()
+                .map(|station| station.name)
+                .collect(),
         })
     }
     Ok(subscribers)
