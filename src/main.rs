@@ -29,7 +29,7 @@ async fn main() {
         sea_orm::Database::connect(args.database),
     )
     .await
-    .expect("Failed to run FireAlarm");
+    .expect("Failed to run Fire-Alarm Service")
 }
 
 #[cfg(feature = "log")]
@@ -87,11 +87,11 @@ mod test {
             Ok(opt) => sea_orm::Database::connect(opt).await,
             Err(_) => {
                 let db = sea_orm::Database::connect("sqlite::memory:").await.unwrap();
-                fire_alarm_service::setup_db(&db).await.unwrap();
+                fire_alarm_service::setup_db(&db, true).await.unwrap();
                 Ok(db)
             }
         };
-        let address = lettre::Address::new("obi.wan", "konobi.com").unwrap();
+        let address = lettre::Address::new("obiwan.konobi", "jedi.com").unwrap();
 
         fire_alarm_service::test_run(incidents, timestamp, std::future::ready(database), address)
             .await

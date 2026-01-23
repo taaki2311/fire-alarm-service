@@ -102,7 +102,13 @@ pub async fn test_connection(username: String, password: String, relay: &str) ->
 }
 
 /// Sets up the table definitions for [User], [Station], and [UserStation], useful in testing with in-memory SQLite databases
-pub async fn setup_db(db: &impl sea_orm::ConnectionTrait) -> std::result::Result<(), DbErr> {
+pub async fn setup_db(
+    db: &impl sea_orm::ConnectionTrait,
+    add_dummy_data: bool,
+) -> std::result::Result<(), DbErr> {
+    use crate::database::{station, user, user_station};
+    use sea_orm::{ActiveValue, EntityTrait};
+
     let backend = db.get_database_backend();
     let schema = sea_orm::Schema::new(backend);
 
@@ -113,6 +119,57 @@ pub async fn setup_db(db: &impl sea_orm::ConnectionTrait) -> std::result::Result
     ];
     for statement in table_create_statements {
         db.execute(backend.build(&statement)).await?;
+    }
+
+    if add_dummy_data {
+        let stations = [
+            station::ActiveModel {
+                id: ActiveValue::Set(1),
+                name: ActiveValue::Set(String::from("Hello")),
+            },
+            station::ActiveModel {
+                id: ActiveValue::Set(2),
+                name: ActiveValue::Set(String::from("General")),
+            },
+            station::ActiveModel {
+                id: ActiveValue::Set(3),
+                name: ActiveValue::Set(String::from("high ground")),
+            },
+            station::ActiveModel {
+                id: ActiveValue::Set(4),
+                name: ActiveValue::Set(String::from("power")),
+            },
+        ];
+        Station::insert_many(stations)
+            .exec_without_returning(db)
+            .await?;
+
+        let users = [
+            user::ActiveModel {
+                id: ActiveValue::Set(1),
+                email: ActiveValue::Set(String::from("sand.hater@jedi.com")),
+            },
+            user::ActiveModel {
+                id: ActiveValue::Set(2),
+                email: ActiveValue::Set(String::from("lightsaber.collector@cis.com")),
+            },
+        ];
+        User::insert_many(users).exec_without_returning(db).await?;
+
+        let user_stations = [
+            user_station::ActiveModel {
+                user_id: ActiveValue::Set(1),    // Anakin
+                station_id: ActiveValue::Set(3), // High Ground
+            },
+            user_station::ActiveModel {
+                user_id: ActiveValue::Set(2),    // General Grievous
+                station_id: ActiveValue::Set(1), // Hello there
+            },
+        ];
+        UserStation::insert_many(user_stations)
+            .on_conflict_do_nothing()
+            .exec_without_returning(db)
+            .await?;
     }
     Ok(())
 }
@@ -434,7 +491,7 @@ mod test {
         use sea_orm::{ActiveValue, EntityTrait};
 
         let db = sea_orm::Database::connect("sqlite::memory:").await.unwrap();
-        super::setup_db(&db).await.unwrap();
+        super::setup_db(&db, false).await.unwrap();
 
         let addresses =
             ["alice", "bob", "charlie"].map(|user| Address::new(user, "email.com").unwrap());
