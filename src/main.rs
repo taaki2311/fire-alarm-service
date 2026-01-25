@@ -20,13 +20,13 @@ async fn main() {
         .expect("Failed to parse incidents");
 
     fire_alarm_service::run(
-        args.username,
-        args.password,
-        &args.relay,
-        args.address,
-        incidents,
         args.timestamp,
         sea_orm::Database::connect(args.database),
+        incidents,
+        args.username,
+        args.address,
+        args.password,
+        &args.relay,
     )
     .await
     .expect("Failed to run Fire-Alarm Service")
@@ -93,7 +93,29 @@ mod test {
         };
         let address = lettre::Address::new("obiwan.konobi", "jedi.com").unwrap();
 
-        fire_alarm_service::test_run(incidents, timestamp, std::future::ready(database), address)
+        fire_alarm_service::test_run(timestamp, std::future::ready(database), incidents, address)
+            .await
+            .unwrap();
+    }
+
+    #[cfg(feature = "file-transport")]
+    #[tokio::test]
+    async fn test_file_transport() {
+        let path = env::var("INCIDENTS").unwrap_or_else(|_| String::from("incidents.json"));
+        let incidents = fetch_incidents(path).await.unwrap();
+
+        let timestamp = env::var("TIMESTAMP").unwrap_or_else(|_| String::from("timestamp.txt"));
+        let database = match env::var("DATABASE") {
+            Ok(opt) => sea_orm::Database::connect(opt).await,
+            Err(_) => {
+                let db = sea_orm::Database::connect("sqlite::memory:").await.unwrap();
+                fire_alarm_service::setup_db(&db, true).await.unwrap();
+                Ok(db)
+            }
+        };
+        let address = lettre::Address::new("obiwan.konobi", "jedi.com").unwrap();
+
+        fire_alarm_service::file_run(timestamp, std::future::ready(database), incidents, address)
             .await
             .unwrap();
     }

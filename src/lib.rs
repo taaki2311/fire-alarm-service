@@ -51,28 +51,29 @@ type Result<T> = std::result::Result<T, Error>;
 
 /// Main entrypoint for this library which executes all the logic
 pub async fn run<C: ConnectionTrait>(
-    username: Option<String>,
-    password: String,
-    relay: &str,
-    address: Address,
-    incidents: impl IntoIterator<Item = Incident>,
     timestamp: impl AsRef<Path>,
     database: impl DatabaseFuture<C>,
+    incidents: impl IntoIterator<Item = Incident>,
+    username: Option<String>,
+    address: Address,
+    password: String,
+    relay: &str,
 ) -> Result<()> {
     let transport = create_transport(
         username.clone().unwrap_or_else(|| address.to_string()),
         password,
         relay,
     )?;
-    execute(timestamp, database, incidents, username, address, transport).await?;
-    Ok(())
+    execute(timestamp, database, incidents, username, address, transport)
+        .await
+        .map(|_| ())
 }
 
 /// Test entrypoint to check the messages without actually sending them
 pub async fn test_run<C: ConnectionTrait>(
-    incidents: impl IntoIterator<Item = Incident>,
     timestamp: impl AsRef<Path>,
     database: impl DatabaseFuture<C>,
+    incidents: impl IntoIterator<Item = Incident>,
     address: Address,
 ) -> Result<()> {
     let transport = execute(
@@ -93,12 +94,37 @@ pub async fn test_run<C: ConnectionTrait>(
     Ok(())
 }
 
+#[cfg(feature = "file-transport")]
+pub async fn file_run<C: ConnectionTrait>(
+    timestamp: impl AsRef<Path>,
+    database: impl DatabaseFuture<C>,
+    incidents: impl IntoIterator<Item = Incident>,
+    address: Address,
+) -> Result<()> {
+    let path = std::env::temp_dir();
+    #[cfg(feature = "log")]
+    log::info!("{path:?}");
+    #[cfg(not(feature = "log"))]
+    println!("{path:?}");
+
+    execute(
+        timestamp,
+        database,
+        incidents,
+        None,
+        address,
+        lettre::AsyncFileTransport::<Tokio1Executor>::new(std::env::temp_dir()),
+    )
+    .await
+    .map(|_| ())
+}
+
 /// Checks the connection to the SMTP relay server
 pub async fn test_connection(username: String, password: String, relay: &str) -> Result<bool> {
     let transport = create_transport(username, password, relay)?;
-    let result = Ok(transport.test_connection().await?);
+    let result = transport.test_connection().await?;
     transport.shutdown().await;
-    result
+    Ok(result)
 }
 
 /// Sets up the table definitions for [User], [Station], and [UserStation], useful in testing with in-memory SQLite databases
@@ -296,9 +322,9 @@ async fn fetch_and_update_timestamp(path: impl AsRef<Path>) -> Result<DateTime<U
     let current_time = Utc::now().to_rfc3339();
     rewind.await?;
     let write = file.write_all(current_time.as_bytes());
-    let result = Ok(DateTime::parse_from_rfc3339(&buffer)?.to_utc());
+    let result = DateTime::parse_from_rfc3339(&buffer)?.to_utc();
     write.await?;
-    result
+    Ok(result)
 }
 
 /// Removes any incidents older than the timestamp so that users are not being sent the same messages over and over again

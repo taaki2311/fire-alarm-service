@@ -21,9 +21,10 @@ thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["full"] }
 
 [features]
-default = ["mysql", "postgres", "sqlite", "env"]
+default = ["mysql", "postgres", "sqlite"]
 mysql = ["sea-orm/sqlx-mysql"]
 postgres = ["sea-orm/sqlx-postgres"]
 sqlite = ["sea-orm/sqlx-sqlite"]
 env = ["clap/env"]
 log = ["dep:clap-verbosity-flag", "dep:env_logger", "dep:log"]
+file-transport = ["lettre/file-transport"]

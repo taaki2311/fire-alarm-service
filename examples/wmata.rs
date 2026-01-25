@@ -47,13 +47,13 @@ async fn main() {
 
     let args = args.args;
     fire_alarm_service::run(
-        args.username,
-        args.password,
-        &args.relay,
-        args.address,
-        incidents,
         args.timestamp,
         sea_orm::Database::connect(args.database),
+        incidents,
+        args.username,
+        args.address,
+        args.password,
+        &args.relay,
     )
     .await
     .expect("Failed to run FireAlarm");
@@ -71,13 +71,13 @@ struct IncidentWmata {
     DateUpdated: String, // Date and time (Eastern Standard Time) of last update. Will be in YYYY-MM-DDTHH:mm:SS format (e.g.: 2010-07-29T14:21:28).
     // DelaySeverity: String, // Deprecated
     Description: String, // Free-text description of the incident.
-    // EmergencyText: String, // Deprecated
-    // EndLocationFullName: String, // Deprecated
-    // IncidentID: Option<String>,   // Unique identifier for an incident.
-    // IncidentType: Option<String>, // Free-text description of the incident type. Usually Delay or Alert but is subject to change at any time.
-    // LinesAffected: Option<String>, // Semi-colon and space separated list of line codes (e.g.: RD; or BL; OR; or BL; OR; RD;).
-    // PassengerDelay: String, // Deprecated
-    // StartLocationFullName: String, // Deprecated
+                         // EmergencyText: String, // Deprecated
+                         // EndLocationFullName: String, // Deprecated
+                         // IncidentID: Option<String>,   // Unique identifier for an incident.
+                         // IncidentType: Option<String>, // Free-text description of the incident type. Usually Delay or Alert but is subject to change at any time.
+                         // LinesAffected: Option<String>, // Semi-colon and space separated list of line codes (e.g.: RD; or BL; OR; or BL; OR; RD;).
+                         // PassengerDelay: String, // Deprecated
+                         // StartLocationFullName: String, // Deprecated
 }
 
 async fn fetch_incidents(endpoint: Url, key: HeaderValue) -> Result<IncidentsWmata> {
@@ -169,14 +169,14 @@ mod test {
             Ok(opt) => sea_orm::Database::connect(opt).await,
             Err(_) => {
                 let db = sea_orm::Database::connect("sqlite::memory:").await.unwrap();
-                fire_alarm_service::setup_db(&db).await.unwrap();
+                fire_alarm_service::setup_db(&db, true).await.unwrap();
                 Ok(db)
             }
         };
-        let address = lettre::Address::new("obi.wan", "konobi.com").unwrap();
+        let address = lettre::Address::new("obiwan.konobi", "jedi.com").unwrap();
 
         let incidents: Vec<crate::Incident> = incidents.await.unwrap().try_into().unwrap();
-        fire_alarm_service::test_run(incidents, timestamp, std::future::ready(database), address)
+        fire_alarm_service::test_run(timestamp, std::future::ready(database), incidents, address)
             .await
             .expect("Failed to run FireAlarm");
     }
