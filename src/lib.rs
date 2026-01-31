@@ -4,8 +4,8 @@ use camino::Utf8PathBuf;
 use chrono::{DateTime, Utc};
 use lettre::{Address, AsyncSmtpTransport, AsyncTransport, Tokio1Executor, message, transport};
 use sea_orm::{ConnectionTrait, DbErr};
-use serde::Deserialize;
-use tokio::sync::Mutex;
+use serde::{Deserialize, Serialize};
+use tera::Tera;
 
 pub use clap::Parser;
 
@@ -45,6 +45,10 @@ pub struct Args {
     #[arg(short, long)]
     #[cfg_attr(feature = "env", arg(env))]
     pub database: sea_orm::ConnectOptions,
+
+    #[arg(short, long, default_value_t = Utf8PathBuf::from("index.html"))]
+    #[cfg_attr(feature = "env", arg(env))]
+    pub index: Utf8PathBuf,
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -54,6 +58,7 @@ pub async fn run<C: ConnectionTrait>(
     timestamp: impl AsRef<Path>,
     database: impl DatabaseFuture<C>,
     incidents: impl IntoIterator<Item = Incident>,
+    index: impl AsRef<Path>,
     username: Option<String>,
     address: Address,
     password: String,
@@ -64,9 +69,11 @@ pub async fn run<C: ConnectionTrait>(
         password,
         relay,
     )?;
-    execute(timestamp, database, incidents, username, address, transport)
-        .await
-        .map(|_| ())
+    execute(
+        timestamp, database, incidents, index, username, address, transport,
+    )
+    .await
+    .map(|_| ())
 }
 
 /// Test entrypoint to check the messages without actually sending them
@@ -74,12 +81,14 @@ pub async fn test_run<C: ConnectionTrait>(
     timestamp: impl AsRef<Path>,
     database: impl DatabaseFuture<C>,
     incidents: impl IntoIterator<Item = Incident>,
+    index: impl AsRef<Path>,
     address: Address,
 ) -> Result<()> {
     let transport = execute(
         timestamp,
         database,
         incidents,
+        index,
         None,
         address,
         transport::stub::AsyncStubTransport::new_ok(),
@@ -99,6 +108,7 @@ pub async fn file_run<C: ConnectionTrait>(
     timestamp: impl AsRef<Path>,
     database: impl DatabaseFuture<C>,
     incidents: impl IntoIterator<Item = Incident>,
+    index: impl AsRef<Path>,
     address: Address,
 ) -> Result<()> {
     let path = std::env::temp_dir();
@@ -111,6 +121,7 @@ pub async fn file_run<C: ConnectionTrait>(
         timestamp,
         database,
         incidents,
+        index,
         None,
         address,
         lettre::AsyncFileTransport::<Tokio1Executor>::new(std::env::temp_dir()),
@@ -200,42 +211,42 @@ pub async fn setup_db(
     Ok(())
 }
 
+const TEMPLATE: &str = "Email Template";
+
 /// Actually handles all the business logic for gathering the notifications, filtering them by time and subscription for each user, and sending the email
 async fn execute<C: ConnectionTrait, T: AsyncTransport<Error: Debug> + Send + Sync + 'static>(
     timestamp: impl AsRef<Path>,
     database: impl DatabaseFuture<C>,
     incidents: impl IntoIterator<Item = Incident>,
+    index: impl AsRef<Path>,
     username: Option<String>,
     address: Address,
     transport: T,
 ) -> Result<T> {
     // Needs to return the transport so [`test_run`] can display the messages
     let timestamp = fetch_and_update_timestamp(timestamp);
-    let users: Vec<_> = fetch_users(database).await?;
 
-    #[cfg(feature = "log")]
-    log::trace!("{users:?}");
-
-    let incidents: Vec<_> = filter_timestamp(incidents, timestamp.await?);
+    let incidents: Arc<Vec<_>> = Arc::new(filter_timestamp(incidents, timestamp.await?));
     #[cfg(feature = "log")]
     log::debug!("{incidents:?}");
 
-    let message_builder = create_message_builder(username, address);
-    let transport = Arc::new(Mutex::new(transport));
+    let template = Arc::new(create_template(index)?);
+    let message_builder = Arc::new(create_message_builder(username, address));
+    let transport = Arc::new(transport);
 
     let mut join_set = tokio::task::JoinSet::new();
-    for user in users {
+    for user in fetch_users(database).await? {
         join_set.spawn(process(
             // Processes each user in parallel
             incidents.clone(),
             user,
+            template.clone(),
             message_builder.clone(),
             transport.clone(),
         ));
     }
 
     let results = join_set.join_all().await;
-    let shutdown = transport.lock();
     for result in results {
         if let Err(error) = result {
             // If there is an error report it and continue
@@ -246,11 +257,8 @@ async fn execute<C: ConnectionTrait, T: AsyncTransport<Error: Debug> + Send + Sy
         }
     }
 
-    shutdown.await.shutdown().await;
-    match Arc::into_inner(transport) {
-        Some(mutex) => Ok(mutex.into_inner()),
-        None => Err(Error::PoisonError),
-    }
+    transport.shutdown().await;
+    Arc::into_inner(transport).ok_or(Error::TransportError)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -270,8 +278,8 @@ pub enum Error {
     #[error("Failed to send email: {0}")]
     SendError(String), // AsyncTransport::Error can be different types depending on the transport, but they all impl Debug
 
-    #[error("Arc<Mutex<AsyncTransport>> is poisoned")]
-    PoisonError, // I wonder if there is a better way to do this?
+    #[error("Email transport memory conflict")]
+    TransportError,
 
     #[error("Failed to generate email message: {0}")]
     EmailError(#[from] lettre::error::Error),
@@ -281,10 +289,13 @@ pub enum Error {
 
     #[error("Failed to parse email address: {0}")]
     AddressParseError(#[from] lettre::address::AddressError),
+
+    #[error("Template Error: {0}")]
+    TemplateError(#[from] tera::Error),
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Incident<D: AsRef<str> = String> {
     timestamp: DateTime<Utc>,
     description: D,
@@ -336,6 +347,13 @@ fn filter_timestamp<B: FromIterator<Incident>>(
         .into_iter()
         .filter(|incident| incident.timestamp >= timestamp)
         .collect()
+}
+
+/// Creates the template for the email
+fn create_template(index: impl AsRef<Path>) -> tera::Result<Tera> {
+    let mut template = Tera::default();
+    template.add_template_file(index, Some(TEMPLATE))?;
+    Ok(template)
 }
 
 #[cfg_attr(test, derive(PartialEq, serde::Serialize))]
@@ -391,7 +409,7 @@ fn create_message_builder(username: Option<String>, address: Address) -> message
     lettre::Message::builder()
         .from(mailbox)
         .subject("Transit Notification")
-        .header(message::header::ContentType::TEXT_PLAIN)
+        .header(message::header::ContentType::TEXT_HTML)
 }
 
 /// Creates the backend transport to the SMTP relay server
@@ -407,32 +425,42 @@ fn create_transport(
         .build())
 }
 
+/// Render the message body for the email to be sent to the user
+fn render_message(incidents: &impl Serialize, template: impl AsRef<Tera>) -> tera::Result<String> {
+    let mut context = tera::Context::new();
+    context.insert(stringify!(incidents), incidents);
+    template.as_ref().render(TEMPLATE, &context)
+}
+
 /// Business logic for each individual user
-async fn process(
-    incidents: impl IntoIterator<Item = Incident>,
+async fn process<I: IntoIterator<Item = Incident> + Clone>(
+    incidents: impl AsRef<I>,
     user: Subscriber,
-    message_builder: message::MessageBuilder,
-    transport: Arc<Mutex<impl AsyncTransport<Error: Debug> + Send + Sync>>,
+    template: impl AsRef<Tera>,
+    message_builder: impl AsRef<message::MessageBuilder>,
+    transport: Arc<impl AsyncTransport<Error: Debug> + Send + Sync>,
 ) -> Result<()> {
     #[cfg(feature = "log")]
     log::debug!("{user:?}");
 
-    let incidents: Vec<_> = filter_stations(incidents, &user.stations);
-    if let Some(message) = incidents_to_string(incidents) {
-        #[cfg(feature = "log")]
-        log::debug!("{}: {message}", user.email);
-
-        let message = message_builder.to(user.email.into()).body(message)?;
-        match transport.lock().await.send(message).await {
-            Ok(_) => Ok(()),
-            Err(error) => Err(Error::SendError(format!("{error:?}"))),
-        }
-    } else {
+    let incidents: Vec<_> = filter_stations(incidents.as_ref().clone(), &user.stations);
+    if incidents.is_empty() {
         // None of the stations the user is subscribed to have notices
         #[cfg(feature = "log")]
         log::debug!("{}: None", user.email);
 
         Ok(())
+    } else {
+        let body = render_message(&incidents, template)?;
+
+        #[cfg(feature = "log")]
+        log::debug!("{}: {body}", user.email);
+
+        let message = message_builder.as_ref().clone().to(user.email.into()).body(body)?;
+        match transport.send(message).await {
+            Ok(_) => Ok(()),
+            Err(error) => Err(Error::SendError(format!("{error:?}"))),
+        }
     }
 }
 
@@ -445,21 +473,6 @@ fn filter_stations<B: FromIterator<Incident>>(
         .into_iter()
         .filter(|incident| incident.mentions(stations))
         .collect()
-}
-
-/// Message may be empty if there are no notices for an stations the user is subscribed to
-fn incidents_to_string(incidents: impl IntoIterator<Item = Incident>) -> Option<String> {
-    let mut message = String::new();
-    for incident in incidents {
-        message.push_str(&incident.description);
-        message.push('\n');
-    }
-    if message.is_empty() {
-        // [`incidents`] is an [`IntoIterator`], not [`ExactSizeIterator`] and thus it does not have the [`.len()`] function
-        None
-    } else {
-        Some(message)
-    }
 }
 
 #[cfg(test)]
@@ -586,13 +599,4 @@ mod test {
         assert_eq!(subscribers, expected);
     }
 
-    #[test]
-    fn test_incidents_to_string() {
-        use super::incidents_to_string;
-
-        let some = [Incident::new(Utc::now(), String::from("foo"))];
-        let none = [];
-        assert!(incidents_to_string(some).is_some());
-        assert!(incidents_to_string(none).is_none());
-    }
 }

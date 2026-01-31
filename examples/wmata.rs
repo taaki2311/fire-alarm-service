@@ -50,6 +50,7 @@ async fn main() {
         args.timestamp,
         sea_orm::Database::connect(args.database),
         incidents,
+        &args.index,
         args.username,
         args.address,
         args.password,
@@ -176,8 +177,14 @@ mod test {
         let address = lettre::Address::new("obiwan.konobi", "jedi.com").unwrap();
 
         let incidents: Vec<crate::Incident> = incidents.await.unwrap().try_into().unwrap();
-        fire_alarm_service::test_run(timestamp, std::future::ready(database), incidents, address)
-            .await
-            .expect("Failed to run FireAlarm");
+        fire_alarm_service::test_run(
+            timestamp,
+            std::future::ready(database),
+            incidents,
+            "index.html",
+            address,
+        )
+        .await
+        .expect("Failed to run FireAlarm");
     }
 }

@@ -23,6 +23,7 @@ async fn main() {
         args.timestamp,
         sea_orm::Database::connect(args.database),
         incidents,
+        &args.index,
         args.username,
         args.address,
         args.password,
@@ -93,9 +94,15 @@ mod test {
         };
         let address = lettre::Address::new("obiwan.konobi", "jedi.com").unwrap();
 
-        fire_alarm_service::test_run(timestamp, std::future::ready(database), incidents, address)
-            .await
-            .unwrap();
+        fire_alarm_service::test_run(
+            timestamp,
+            std::future::ready(database),
+            incidents,
+            "index.html",
+            address,
+        )
+        .await
+        .unwrap();
     }
 
     #[cfg(feature = "file-transport")]
@@ -115,8 +122,14 @@ mod test {
         };
         let address = lettre::Address::new("obiwan.konobi", "jedi.com").unwrap();
 
-        fire_alarm_service::file_run(timestamp, std::future::ready(database), incidents, address)
-            .await
-            .unwrap();
+        fire_alarm_service::file_run(
+            timestamp,
+            std::future::ready(database),
+            incidents,
+            "index.html",
+            address,
+        )
+        .await
+        .unwrap();
     }
 }

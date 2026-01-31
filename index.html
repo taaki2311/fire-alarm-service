@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Fire Alarm</title>
+</head>
+
+<body>
+    <table>
+        <caption>Is your train on fire?</caption>
+        <tr>
+            <th>Incident</th>
+            <th>Date and time</th>
+        </tr>
+        {% for incident in incidents %}
+        <tr>
+            <td>{{ incident.description }}</td>
+            <td>
+                <time datetime="{{ incident.timestamp }}">
+                    {{ incident.timestamp | date(format="%c") }} UTC
+                </time>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    <script>
+        document.querySelectorAll('time').forEach(element => {
+            element.innerText = new Date(element.dateTime).toLocaleString();
+        });
+    </script>
+</body>
+
+</html>
