@@ -3,21 +3,78 @@
 
 <head>
     <title>Fire Alarm</title>
+    <style>
+        :root {
+            --border: medium solid;
+            --cell-padding: 0.5em;
+        }
+
+        body {
+            background-color: cornflowerblue;
+            font: large sans-serif;
+        }
+
+        table {
+            border: var(--border, medium solid);
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        @keyframes pulseFire {
+            from {
+                text-shadow: none;
+            }
+
+            to {
+                text-shadow: 0 0 0.5em tomato;
+            }
+        }
+
+        caption {
+            animation: pulseFire 5s infinite alternate;
+            font: bold larger serif;
+        }
+
+        th {
+            background-color: midnightblue;
+            color: lavender;
+            padding: var(--cell-padding, 0.5em);
+        }
+    
+        td {
+            border-left: var(--border, medium solid);
+            padding: var(--cell-padding, 0.5em);
+        }
+
+        tr:nth-child(odd) {
+            background-color: royalblue;
+        }
+
+        tr:hover {
+            background-color: coral;
+        }
+
+        .center {
+            text-align: center;
+        }
+    </style>
 </head>
 
 <body>
     <table>
-        <caption>Is your train on fire?</caption>
+        <caption>&#x1F525; Is your Train on Fire? &#x1F525;</caption>
         <tr>
+            <th>Station</th>
             <th>Incident</th>
             <th>Date and time</th>
         </tr>
-        {% for incident in incidents %}
+        {% for report in reports %}
         <tr>
-            <td>{{ incident.description }}</td>
-            <td>
-                <time datetime="{{ incident.timestamp }}">
-                    {{ incident.timestamp | date(format="%c") }} UTC
+            <td>{{ report.station }}</td>
+            <td>{{ report.incident.description }}</td>
+            <td class="center">
+                <time datetime="{{ report.incident.timestamp }}">
+                    {{ report.incident.timestamp | date(format="%c") }} UTC
                 </time>
             </td>
         </tr>

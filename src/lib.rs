@@ -296,25 +296,34 @@ pub enum Error {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Incident<D: AsRef<str> = String> {
+pub struct Incident {
     timestamp: DateTime<Utc>,
-    description: D,
+    description: String,
 }
 
-impl<D: AsRef<str>> Incident<D> {
-    pub fn new(timestamp: DateTime<Utc>, description: D) -> Self {
+impl Incident {
+    pub fn new(timestamp: DateTime<Utc>, description: String) -> Self {
         Incident {
             timestamp: timestamp,
             description: description,
         }
     }
 
-    /// Checks if the incident message mentions any of the stations in the list
-    fn mentions(&self, stations: &Vec<impl AsRef<str>>) -> bool {
-        stations
-            .into_iter()
-            .any(|station| self.description.as_ref().contains(station.as_ref()))
+    /// Filters the incidents that mention a station in the list and creates a report
+    fn filter_and_report(self, stations: &Vec<impl AsRef<str>>) -> Option<Report> {
+        for station in stations {
+            if self.description.contains(station.as_ref()) {
+                return Some(Report { station: station.as_ref().to_string(), incident: self });
+            }
+        }
+        None
     }
+}
+
+#[derive(Serialize)]
+struct Report {
+    station: String,
+    incident: Incident
 }
 
 /// Reads the old timestamp value from and writes a new one to the file
@@ -426,9 +435,9 @@ fn create_transport(
 }
 
 /// Render the message body for the email to be sent to the user
-fn render_message(incidents: &impl Serialize, template: impl AsRef<Tera>) -> tera::Result<String> {
+fn render_message(reports: &impl Serialize, template: impl AsRef<Tera>) -> tera::Result<String> {
     let mut context = tera::Context::new();
-    context.insert(stringify!(incidents), incidents);
+    context.insert(stringify!(reports), reports);
     template.as_ref().render(TEMPLATE, &context)
 }
 
@@ -443,15 +452,15 @@ async fn process<I: IntoIterator<Item = Incident> + Clone>(
     #[cfg(feature = "log")]
     log::debug!("{user:?}");
 
-    let incidents: Vec<_> = filter_stations(incidents.as_ref().clone(), &user.stations);
-    if incidents.is_empty() {
+    let reports: Vec<_> = filter_stations(incidents.as_ref().clone(), &user.stations);
+    if reports.is_empty() {
         // None of the stations the user is subscribed to have notices
         #[cfg(feature = "log")]
         log::debug!("{}: None", user.email);
 
         Ok(())
     } else {
-        let body = render_message(&incidents, template)?;
+        let body = render_message(&reports, template)?;
 
         #[cfg(feature = "log")]
         log::debug!("{}: {body}", user.email);
@@ -465,13 +474,13 @@ async fn process<I: IntoIterator<Item = Incident> + Clone>(
 }
 
 /// Only keeps the notices for stations that the user is subscribed to
-fn filter_stations<B: FromIterator<Incident>>(
+fn filter_stations<B: FromIterator<Report>>(
     incidents: impl IntoIterator<Item = Incident>,
     stations: &Vec<impl AsRef<str>>,
 ) -> B {
     incidents
         .into_iter()
-        .filter(|incident| incident.mentions(stations))
+        .filter_map(|incident| incident.filter_and_report(stations))
         .collect()
 }
 
