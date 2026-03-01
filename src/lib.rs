@@ -24,7 +24,7 @@ pub struct Args {
     /// Username for the SMTP relay server, will default to address
     #[arg(short, long)]
     #[cfg_attr(feature = "env", arg(env))]
-    pub username: Option<String>,
+    pub name: Option<String>,
 
     /// Password for the SMTP relay server
     #[arg(short, long)]
@@ -313,7 +313,10 @@ impl Incident {
     fn filter_and_report(self, stations: &Vec<impl AsRef<str>>) -> Option<Report> {
         for station in stations {
             if self.description.contains(station.as_ref()) {
-                return Some(Report { station: station.as_ref().to_string(), incident: self });
+                return Some(Report {
+                    station: station.as_ref().to_string(),
+                    incident: self,
+                });
             }
         }
         None
@@ -323,7 +326,7 @@ impl Incident {
 #[derive(Serialize)]
 struct Report {
     station: String,
-    incident: Incident
+    incident: Incident,
 }
 
 /// Reads the old timestamp value from and writes a new one to the file
@@ -427,7 +430,7 @@ fn create_transport(
     password: String,
     relay: &str,
 ) -> std::result::Result<AsyncSmtpTransport<Tokio1Executor>, lettre::transport::smtp::Error> {
-    Ok(AsyncSmtpTransport::<Tokio1Executor>::relay(relay)?
+    Ok(AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(relay)?
         .credentials(transport::smtp::authentication::Credentials::new(
             username, password,
         ))
@@ -465,7 +468,11 @@ async fn process<I: IntoIterator<Item = Incident> + Clone>(
         #[cfg(feature = "log")]
         log::debug!("{}: {body}", user.email);
 
-        let message = message_builder.as_ref().clone().to(user.email.into()).body(body)?;
+        let message = message_builder
+            .as_ref()
+            .clone()
+            .to(user.email.into())
+            .body(body)?;
         match transport.send(message).await {
             Ok(_) => Ok(()),
             Err(error) => Err(Error::SendError(format!("{error:?}"))),
@@ -607,5 +614,4 @@ mod test {
         .collect();
         assert_eq!(subscribers, expected);
     }
-
 }

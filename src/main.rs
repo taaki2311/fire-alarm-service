@@ -24,7 +24,7 @@ async fn main() {
         sea_orm::Database::connect(args.database),
         incidents,
         &args.index,
-        args.username,
+        args.name,
         args.address,
         args.password,
         &args.relay,
@@ -68,7 +68,7 @@ mod test {
 
     #[tokio::test]
     async fn test_connection() {
-        let username = env::var("ADDRESS").unwrap();
+        let username = env::var("NAME").unwrap_or_else(|_| env::var("ADDRESS").unwrap());
         let password = env::var("PASSWORD").unwrap();
         let relay = env::var("RELAY").unwrap();
         assert!(

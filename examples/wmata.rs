@@ -51,7 +51,7 @@ async fn main() {
         sea_orm::Database::connect(args.database),
         incidents,
         &args.index,
-        args.username,
+        args.name,
         args.address,
         args.password,
         &args.relay,
