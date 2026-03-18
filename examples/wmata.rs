@@ -10,10 +10,12 @@ use serde::Deserialize;
 struct Cli {
     /// API key for fetching incidents from WMATA
     #[arg(short, long)]
-    key: HeaderValue,
+    #[cfg_attr(feature = "env", arg(env))]
+    wmata_api_key: HeaderValue,
 
     /// Endpoint for getting the incidents
     #[arg(short, long, default_value_t = Url::parse("https://api.wmata.com/Incidents.svc/json/Incidents").unwrap())]
+    #[cfg_attr(feature = "env", arg(env))]
     endpoint: Url,
 
     #[command(flatten)]
@@ -29,7 +31,7 @@ struct Cli {
 async fn main() {
     let args = Cli::parse();
 
-    let incidents = fetch_incidents(args.endpoint, args.key);
+    let incidents = fetch_incidents(args.endpoint, args.wmata_api_key);
 
     #[cfg(feature = "log")]
     env_logger::Builder::new()

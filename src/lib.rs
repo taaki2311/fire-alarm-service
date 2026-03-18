@@ -326,6 +326,7 @@ impl Incident {
 #[derive(Serialize)]
 struct Report {
     station: String,
+    #[serde(flatten)]
     incident: Incident,
 }
 

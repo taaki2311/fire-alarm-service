@@ -58,6 +58,7 @@
             text-align: center;
         }
     </style>
+    <meta charset="utf-8">
 </head>
 
 <body>
@@ -71,10 +72,10 @@
         {% for report in reports %}
         <tr>
             <td>{{ report.station }}</td>
-            <td>{{ report.incident.description }}</td>
+            <td>{{ report.description }}</td>
             <td class="center">
-                <time datetime="{{ report.incident.timestamp }}">
-                    {{ report.incident.timestamp | date(format="%c") }} UTC
+                <time datetime="{{ report.timestamp }}">
+                    {{ report.timestamp | date(format="%c") }} UTC
                 </time>
             </td>
         </tr>

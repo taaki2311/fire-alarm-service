@@ -22,7 +22,7 @@ thiserror = "2.0.18"
 tokio = { version = "1.50.0", features = ["full"] }
 
 [features]
-default = ["sqlite"]
+default = ["env", "sqlite"]
 mysql = ["sea-orm/sqlx-mysql"]
 postgres = ["sea-orm/sqlx-postgres"]
 sqlite = ["sea-orm/sqlx-sqlite"]
