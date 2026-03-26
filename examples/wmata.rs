@@ -151,7 +151,7 @@ mod test {
     #[tokio::test]
     async fn test_fetch_incidents() {
         let endpoint = env::var("WMATA_ENDPOINT")
-            .unwrap_or_else(|_| String::from("https://api.wmata.com/Incidents.svc/json/Incidents"))
+            .unwrap_or_else(|_| "https://api.wmata.com/Incidents.svc/json/Incidents".to_string())
             .parse()
             .unwrap();
         let key = env::var("WMATA_API_KEY").unwrap().try_into().unwrap();
@@ -161,13 +161,13 @@ mod test {
     #[tokio::test]
     async fn test_main() {
         let endpoint = env::var("WMATA_ENDPOINT")
-            .unwrap_or_else(|_| String::from("https://api.wmata.com/Incidents.svc/json/Incidents"))
+            .unwrap_or_else(|_| "https://api.wmata.com/Incidents.svc/json/Incidents".to_string())
             .parse()
             .unwrap();
         let key = env::var("WMATA_API_KEY").unwrap().try_into().unwrap();
         let incidents = fetch_incidents(endpoint, key);
 
-        let timestamp = env::var("TIMESTAMP").unwrap_or_else(|_| String::from("timestamp.txt"));
+        let timestamp = env::var("TIMESTAMP").unwrap_or_else(|_| "timestamp.txt".to_string());
         let database = match env::var("DATABASE") {
             Ok(opt) => sea_orm::Database::connect(opt).await,
             Err(_) => {

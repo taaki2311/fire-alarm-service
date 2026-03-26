@@ -162,19 +162,19 @@ pub async fn setup_db(
         let stations = [
             stations::ActiveModel {
                 id: ActiveValue::Set(1),
-                name: ActiveValue::Set(String::from("Hello")),
+                name: ActiveValue::Set("Hello".to_string()),
             },
             stations::ActiveModel {
                 id: ActiveValue::Set(2),
-                name: ActiveValue::Set(String::from("General")),
+                name: ActiveValue::Set("General".to_string()),
             },
             stations::ActiveModel {
                 id: ActiveValue::Set(3),
-                name: ActiveValue::Set(String::from("high ground")),
+                name: ActiveValue::Set("high ground".to_string()),
             },
             stations::ActiveModel {
                 id: ActiveValue::Set(4),
-                name: ActiveValue::Set(String::from("power")),
+                name: ActiveValue::Set("power".to_string()),
             },
         ];
         Stations::insert_many(stations)
@@ -184,11 +184,11 @@ pub async fn setup_db(
         let users = [
             users::ActiveModel {
                 id: ActiveValue::Set(1),
-                email: ActiveValue::Set(String::from("sand.hater@jedi.com")),
+                email: ActiveValue::Set("sand.hater@jedi.com".to_string()),
             },
             users::ActiveModel {
                 id: ActiveValue::Set(2),
-                email: ActiveValue::Set(String::from("lightsaber.collector@cis.com")),
+                email: ActiveValue::Set("lightsaber.collector@cis.com".to_string()),
             },
         ];
         Users::insert_many(users).exec_without_returning(db).await?;
@@ -528,8 +528,8 @@ mod test {
 
         let before = Utc.with_ymd_and_hms(1999, 1, 1, 0, 0, 0).unwrap();
         let after = Utc.with_ymd_and_hms(2001, 1, 1, 0, 0, 0).unwrap();
-        let after = Incident::new(after, String::from("After"));
-        let incidents = [Incident::new(before, String::from("Before")), after.clone()];
+        let after = Incident::new(after, "After".to_string());
+        let incidents = [Incident::new(before, "Before".to_string()), after.clone()];
         let timestamp = Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap();
         let mut results: Vec<_> = super::filter_timestamp(incidents, timestamp);
         assert_eq!(results.pop(), Some(after));

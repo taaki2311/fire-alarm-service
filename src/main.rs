@@ -62,7 +62,7 @@ mod test {
 
     #[tokio::test]
     async fn test_fetch_incidents() {
-        let path = env::var("INCIDENTS").unwrap_or_else(|_| String::from("incidents.json"));
+        let path = env::var("INCIDENTS").unwrap_or_else(|_| "incidents.json".to_string());
         fetch_incidents(path).await.unwrap();
     }
 
@@ -80,10 +80,10 @@ mod test {
 
     #[tokio::test]
     async fn test_main() {
-        let path = env::var("INCIDENTS").unwrap_or_else(|_| String::from("incidents.json"));
+        let path = env::var("INCIDENTS").unwrap_or_else(|_| "incidents.json".to_string());
         let incidents = fetch_incidents(path).await.unwrap();
 
-        let timestamp = env::var("TIMESTAMP").unwrap_or_else(|_| String::from("timestamp.txt"));
+        let timestamp = env::var("TIMESTAMP").unwrap_or_else(|_| "timestamp.txt".to_string());
         let database = match env::var("DATABASE") {
             Ok(opt) => sea_orm::Database::connect(opt).await,
             Err(_) => {
@@ -108,10 +108,10 @@ mod test {
     #[cfg(feature = "file-transport")]
     #[tokio::test]
     async fn test_file_transport() {
-        let path = env::var("INCIDENTS").unwrap_or_else(|_| String::from("incidents.json"));
+        let path = env::var("INCIDENTS").unwrap_or_else(|_| "incidents.json".to_string());
         let incidents = fetch_incidents(path).await.unwrap();
 
-        let timestamp = env::var("TIMESTAMP").unwrap_or_else(|_| String::from("timestamp.txt"));
+        let timestamp = env::var("TIMESTAMP").unwrap_or_else(|_| "timestamp.txt".to_string());
         let database = match env::var("DATABASE") {
             Ok(opt) => sea_orm::Database::connect(opt).await,
             Err(_) => {

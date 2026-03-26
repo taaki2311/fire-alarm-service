@@ -69,7 +69,7 @@
             <th>Incident</th>
             <th>Date and time</th>
         </tr>
-        {% for report in reports %}
+        {% for report in reports -%}
         <tr>
             <td>{{ report.station }}</td>
             <td>{{ report.description }}</td>
@@ -79,7 +79,7 @@
                 </time>
             </td>
         </tr>
-        {% endfor %}
+        {% endfor -%}
     </table>
     <script>
         document.querySelectorAll('time').forEach(element => {
