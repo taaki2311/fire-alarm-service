@@ -10,11 +10,11 @@ jobs:
   Test:
     runs-on: ubuntu-latest  
     steps:
-    - uses: actions/checkout@latest
+    - uses: actions/checkout@v6
     - name: Build
       run: cargo build --verbose
-    - name: Create timestamp.txt
-      run: cp timestamp.xmpl timestamp.txt
+    - name: Create Test Files
+      run: cp incidents.xmpl incidents.json && cp timestamp.xmpl timestamp.txt
     - name: Install Dotenvx
       run: curl https://dotenvx.sh/install.sh | sh
     - name: Test
