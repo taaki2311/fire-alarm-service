@@ -17,7 +17,7 @@ use crate::database::prelude::*;
 #[command(version)]
 pub struct Args {
     /// Email address to send from
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t = Address::new("no-reply", "fire-alarm.org").unwrap())]
     #[cfg_attr(feature = "env", arg(env))]
     pub address: Address,
 
@@ -46,6 +46,7 @@ pub struct Args {
     #[cfg_attr(feature = "env", arg(env))]
     pub database: sea_orm::ConnectOptions,
 
+    /// Filename of the template to be used for building emails
     #[arg(short, long, default_value_t = Utf8PathBuf::from("index.html"))]
     #[cfg_attr(feature = "env", arg(env))]
     pub index: Utf8PathBuf,
