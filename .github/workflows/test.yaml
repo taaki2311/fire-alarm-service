@@ -16,9 +16,9 @@ jobs:
     - name: Create Test Files
       run: cp incidents.xmpl incidents.json && cp timestamp.xmpl timestamp.txt
     - name: Install Dotenvx
-      run: curl https://dotenvx.sh/install.sh | sh
+      run: curl --verbose https://dotenvx.sh/install.sh | sh
     - name: Test
       run: dotenvx run -- cargo test --verbose --all-targets
       env:
-        DOTENV_PRIVATE_KEY_CI: ${{ secrets.DOTENV_PRIVATE_KEY_CI }}
+        DOTENV_PRIVATE_KEY_TEST: ${{ secrets.DOTENV_PRIVATE_KEY_TEST }}
         RUST_BACKTRACE: 1
