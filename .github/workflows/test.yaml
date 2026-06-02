@@ -13,8 +13,8 @@ jobs:
     - uses: actions/checkout@v6
     - name: Build
       run: cargo build --verbose
-    - name: Create Test Files
-      run: cp incidents.xmpl incidents.json && cp timestamp.xmpl timestamp.txt
+    - name: Setup Test Files
+      run: sh ./setup.sh
     - name: Install Dotenvx
       run: curl --verbose https://dotenvx.sh/install.sh | sh
     - name: Test
