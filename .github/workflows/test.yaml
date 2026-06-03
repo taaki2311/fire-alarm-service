@@ -1,24 +1,26 @@
 name: Test
+permissions:
+  contents: read
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   Test:
-    runs-on: ubuntu-latest  
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
-    - name: Build
-      run: cargo build --verbose
-    - name: Setup Test Files
-      run: sh ./setup.sh
-    - name: Install Dotenvx
-      run: curl --verbose https://dotenvx.sh/install.sh | sh
-    - name: Test
-      run: dotenvx run -- cargo test --verbose --all-targets
-      env:
-        DOTENV_PRIVATE_KEY_TEST: ${{ secrets.DOTENV_PRIVATE_KEY_TEST }}
-        RUST_BACKTRACE: 1
+      - uses: actions/checkout@v6
+      - name: Build
+        run: cargo build --verbose
+      - name: Setup Test Files
+        run: sh ./setup.sh
+      - name: Install Dotenvx
+        run: curl --verbose https://dotenvx.sh/install.sh | sh
+      - name: Test
+        run: dotenvx run -- cargo test --verbose --all-targets
+        env:
+          DOTENV_PRIVATE_KEY_TEST: ${{ secrets.DOTENV_PRIVATE_KEY_TEST }}
+          RUST_BACKTRACE: 1
