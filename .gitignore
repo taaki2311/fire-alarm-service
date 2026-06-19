@@ -1,5 +1,4 @@
 /target
 incidents.json
 timestamp.txt
-*.sqlite
 .env.keys
