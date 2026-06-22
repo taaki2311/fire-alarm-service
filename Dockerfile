@@ -11,10 +11,11 @@ WORKDIR /home
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt update && apt full-upgrade --yes && apt install curl --yes && \
     curl --show-error --silent https://dotenvx.sh/install.sh | sh && \
-    apt remove curl --yes && apt autoremove --yes && apt clean
+    apt remove curl --yes && apt autoremove --yes && apt clean && \
+    date --iso-8601=seconds --utc > timestamp.txt
 COPY .env.test .
+COPY entrypoint.sh .
 COPY index.html .
-COPY timestamp.xmpl timestamp.txt
 COPY --from=builder /home/fire-alarm-service/target/release/fire-alarm-service /usr/local/bin/
 COPY --from=builder /home/fire-alarm-service/target/release/examples/wmata /usr/local/bin/
 ENTRYPOINT [ "dotenvx", "run", "--" ]
