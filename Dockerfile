@@ -14,7 +14,6 @@ RUN apt update && apt full-upgrade --yes && apt install curl --yes && \
     apt remove curl --yes && apt autoremove --yes && apt clean && \
     date --iso-8601=seconds --utc > timestamp.txt
 COPY .env.prod .
-COPY entrypoint.sh .
 COPY index.html .
 COPY --from=builder /home/fire-alarm-service/target/release/fire-alarm-service /usr/local/bin/
 COPY --from=builder /home/fire-alarm-service/target/release/examples/wmata /usr/local/bin/
